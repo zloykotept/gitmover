@@ -27,15 +27,15 @@ fn main() -> std::io::Result<()> {
     }
 
     let matches = Command::new("TransFer")
-        .version("0.0.0")
+        .version("0.1.0")
         .author("ZloyKot")
-        .about("Worship your sweaty dotfiles, skoofs :)")
+        .about("Serve your sweaty dotfiles, skoofs :) (command execution order: remote -> dir -> file -> del -> prepare -> push -> get -> get_local -> clone)")
         .arg(
             Arg::new("verbose")
                 .long("verbose")
                 .short('v')
                 .action(ArgAction::SetTrue)
-                .help("Logs"),
+                .help("Enable verbosity"),
         )
         .arg(
             Arg::new("prepare")
@@ -55,6 +55,12 @@ fn main() -> std::io::Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Rebase all files"),
         )
+        .arg(Arg::new("remote").long("remote").help("Change remote link"))
+        .arg(Arg::new("dir").long("dir").help("Add directory to backups"))
+        .arg(Arg::new("file").long("file").help("Add file to backups"))
+        .arg(Arg::new("del").long("del").help(
+            "Delete file/directory from backups (use dirname/ for dirs and filename.ext for files)",
+        ))
         .get_matches();
 
     let verbose = matches.get_flag("verbose");
