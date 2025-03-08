@@ -110,9 +110,9 @@ pub fn push(conf: &Config, verbose: bool) -> std::io::Result<()> {
         println!("{}", stderr);
         if stderr.lines().count() > 2 {
             println!("Oops! There are changes in remote and I can't apply yours there!");
-            println!("Do you want to overwrite local backup and files? [y/n]");
+            println!("Do you want to overwrite remote with local files? [y/n]");
+
             io::stdin().read_line(&mut answer).unwrap();
-            println!("{:?}", answer);
             if answer != *"y\r\n" && answer != *"Y\r\n" {
                 std::process::exit(0);
             }
@@ -120,8 +120,8 @@ pub fn push(conf: &Config, verbose: bool) -> std::io::Result<()> {
             return Ok(());
         }
     }
-    //git pull
-    pull(conf, verbose)?;
+    //git push force
+    git_execute(&["push", "--force", "origin", "main"], backup_dir_path)?;
 
     Ok(())
 }

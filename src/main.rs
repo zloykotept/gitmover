@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
     let matches = Command::new("TransFer")
         .version("0.1.0")
         .author("ZloyKot")
-        .about("Serve your sweaty dotfiles, skoofs :) NOTE: you must be logged with your git CLI to use this tool, it just uses your installed git program (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local)")
+        .about("Serve your sweaty dotfiles, skoofs :) NOTE: you must be logged with your git CLI to use this tool, this program just uses your installed git tool (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local)")
         .arg(
             Arg::new("verbose")
                 .long("verbose")
