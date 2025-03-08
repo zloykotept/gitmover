@@ -21,7 +21,7 @@ fn main() -> std::io::Result<()> {
     }
 
     let mut config: Config;
-    match fs::read_to_string(config_path) {
+    match fs::read_to_string(&config_path) {
         Ok(config_string) => config = serde_json::from_str(&config_string)?,
         Err(err) => panic!("You have errors in your config! {}", err),
     }
@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
     let matches = Command::new("TransFer")
         .version("0.1.0")
         .author("ZloyKot")
-        .about("Serve your sweaty dotfiles, skoofs :) (command execution order: remote -> dir -> file -> del -> prepare -> push -> get -> get_local -> clone)")
+        .about("Serve your sweaty dotfiles, skoofs :) (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local -> clone)")
         .arg(
             Arg::new("verbose")
                 .long("verbose")
@@ -44,8 +44,8 @@ fn main() -> std::io::Result<()> {
                 .help("Commit changes locally"),
         )
         .arg(
-            Arg::new("get_local")
-                .long("get_local")
+            Arg::new("get-local")
+                .long("get-local")
                 .action(ArgAction::SetTrue)
                 .help("Rebase all files from backup without git pull"),
         )
@@ -58,21 +58,63 @@ fn main() -> std::io::Result<()> {
         .arg(Arg::new("remote").long("remote").help("Change remote link"))
         .arg(Arg::new("dir").long("dir").help("Add directory to backups"))
         .arg(Arg::new("file").long("file").help("Add file to backups"))
+        .arg(Arg::new("home-dir").long("home-dir").help("Home directory, files and directories will be searched related to this path (without '/'!)"))
+        .arg(Arg::new("backup-dir").long("backup-dir").help("Backups directory, all files will be saved to this folder (without '/'!)"))
         .arg(Arg::new("del").long("del").help(
             "Delete file/directory from backups (use dirname/ for dirs and filename.ext for files)",
         ))
+        .arg( Arg::new("tree").long("tree").action(ArgAction::SetTrue).exclusive(true).help("Show backup folder tree") )
+        .arg(Arg::new("show-config").long("show-config").action(ArgAction::SetTrue).exclusive(true).help("Show config?"))
         .get_matches();
 
     let verbose = matches.get_flag("verbose");
 
-    let dir_backup = Path::new(&config.dir_backup);
-    if !dir_backup.exists() {
-        fs::create_dir(dir_backup)?;
+    if !config.dir_backup.is_empty() {
+        let dir_backup = Path::new(&config.dir_backup);
+        if !dir_backup.exists() {
+            fs::create_dir(dir_backup)?;
+        }
+    } else {
+        println!("You must specify directory for backups!")
     }
+
+    if let Some(val) = matches.get_one::<String>("remote") {
+        config.remote = val.to_string();
+    } else if let Some(val) = matches.get_one::<String>("dir") {
+        config.dirs_local.push(val.to_string());
+    } else if let Some(val) = matches.get_one::<String>("file") {
+        config.files_local.push(val.to_string());
+    } else if let Some(val) = matches.get_one::<String>("del") {
+        if val.ends_with('/') {
+            let mut dir = val.to_string();
+            dir.pop();
+            config.dirs_local.retain(|x| x != &dir);
+        } else {
+            config.files_local.retain(|x| x != val);
+        }
+    } else if let Some(val) = matches.get_one::<String>("home-dir") {
+        config.home_dir = val.to_string();
+    } else if let Some(val) = matches.get_one::<String>("backup-dir") {
+        config.dir_backup = val.to_string();
+    } else if matches.get_flag("show-config") {
+        println!("{}", serde_json::to_string_pretty(&config)?);
+    } else if matches.get_flag("tree") {
+        let output = std::process::Command::new("tree")
+            .arg(&config.dir_backup)
+            .output()?;
+
+        if output.status.success() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        } else {
+            panic!("Can't show tree :(");
+        }
+    }
+
+    std::fs::write(&config_path, serde_json::to_string_pretty(&config).unwrap())?;
 
     if matches.get_flag("prepare") {
         prepare(config, verbose)?;
-    } else if matches.get_flag("get_local") {
+    } else if matches.get_flag("get-local") {
         get(config, verbose)?;
     }
 
