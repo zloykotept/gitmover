@@ -5,7 +5,7 @@ use std::{
     io::Write,
     path::Path,
 };
-use transf::{get, prepare, Config};
+use transf::{get, git_execute, prepare, pull, push, Config};
 
 fn main() -> std::io::Result<()> {
     let home = my_home().unwrap().expect("Can't get home directory");
@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
     let matches = Command::new("TransFer")
         .version("0.1.0")
         .author("ZloyKot")
-        .about("Serve your sweaty dotfiles, skoofs :) (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local -> clone)")
+        .about("Serve your sweaty dotfiles, skoofs :) NOTE: you must be logged with your git CLI to use this tool, it just uses your installed git program (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local)")
         .arg(
             Arg::new("verbose")
                 .long("verbose")
@@ -44,6 +44,12 @@ fn main() -> std::io::Result<()> {
                 .help("Commit changes locally"),
         )
         .arg(
+            Arg::new("push")
+                .long("push")
+                .action(ArgAction::SetTrue)
+                .help("Push backups into github"),
+        )
+        .arg(
             Arg::new("get-local")
                 .long("get-local")
                 .action(ArgAction::SetTrue)
@@ -56,7 +62,7 @@ fn main() -> std::io::Result<()> {
                 .help("Rebase all files"),
         )
         .arg(Arg::new("remote").long("remote").help("Change remote link"))
-        .arg(Arg::new("dir").long("dir").help("Add directory to backups"))
+    .arg(Arg::new("dir").long("dir").help("Add directory to backups"))
         .arg(Arg::new("file").long("file").help("Add file to backups"))
         .arg(Arg::new("home-dir").long("home-dir").help("Home directory, files and directories will be searched related to this path (without '/'!)"))
         .arg(Arg::new("backup-dir").long("backup-dir").help("Backups directory, all files will be saved to this folder (without '/'!)"))
@@ -69,13 +75,28 @@ fn main() -> std::io::Result<()> {
 
     let verbose = matches.get_flag("verbose");
 
+    //set backup dir
+    let dir_backup = Path::new(&config.dir_backup);
     if !config.dir_backup.is_empty() {
-        let dir_backup = Path::new(&config.dir_backup);
         if !dir_backup.exists() {
             fs::create_dir(dir_backup)?;
         }
     } else {
-        println!("You must specify directory for backups!")
+        panic!("You must specify directory for backups!");
+    }
+
+    //prepare git repo
+    let dir_git_path = Path::new(&config.dir_backup).join(".git");
+    if !dir_git_path.exists() {
+        let output = git_execute(&["init"], dir_backup)?;
+        git_execute(&["add", "."], dir_backup)?;
+        git_execute(&["remote", "add", "origin", &config.remote], dir_backup)?;
+
+        if output.status.success() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        } else {
+            println!("{}", String::from_utf8_lossy(&output.stderr));
+        }
     }
 
     if let Some(val) = matches.get_one::<String>("remote") {
@@ -110,12 +131,25 @@ fn main() -> std::io::Result<()> {
         }
     }
 
-    std::fs::write(&config_path, serde_json::to_string_pretty(&config).unwrap())?;
+    let config_string = serde_json::to_string_pretty(&config).unwrap();
+    std::fs::write(&config_path, &config_string)?;
+    if verbose {
+        println!("Configuration: {}", config_string);
+    }
 
     if matches.get_flag("prepare") {
-        prepare(config, verbose)?;
-    } else if matches.get_flag("get-local") {
-        get(config, verbose)?;
+        prepare(&config, verbose)?;
+    }
+    if matches.get_flag("push") {
+        prepare(&config, verbose)?;
+        push(&config, verbose)?;
+    }
+    if matches.get_flag("get") {
+        pull(&config, verbose)?;
+        get(&config, verbose)?;
+    }
+    if matches.get_flag("get-local") {
+        get(&config, verbose)?;
     }
 
     Ok(())
