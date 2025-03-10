@@ -1,4 +1,5 @@
 use clap::{Arg, ArgAction, ArgMatches, Command};
+use gitmover::{get, git_execute, prepare, pull, push, sync_config, Config};
 use homedir::my_home;
 use std::{
     error::Error,
@@ -7,11 +8,10 @@ use std::{
     path::{Path, PathBuf},
     process::exit,
 };
-use transf::{get, git_execute, prepare, pull, push, sync_config, Config};
 
 fn main() -> std::io::Result<()> {
     let home = my_home().unwrap().expect("Can't get home directory");
-    let config_path = home.join("/.config/transf/config.json");
+    let config_path = home.join("/.config/gitmover/config.json");
 
     if !config_path.exists() {
         fs::create_dir_all(config_path.parent().unwrap())?;
@@ -19,7 +19,7 @@ fn main() -> std::io::Result<()> {
     if let Ok(mut file) = File::create_new(&config_path) {
         let config = Config::default();
         file.write_all(serde_json::to_string_pretty(&config).unwrap().as_bytes())?;
-        println!("Generated config file at \"~/.config/transf/config.json\"");
+        println!("Generated config file at \"~/.config/gitmover/config.json\"");
     }
 
     let mut config: Config;
