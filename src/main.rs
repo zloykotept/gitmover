@@ -1,9 +1,11 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use homedir::my_home;
 use std::{
+    error::Error,
     fs::{self, File},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
+    process::exit,
 };
 use transf::{get, git_execute, prepare, pull, push, Config};
 
@@ -61,6 +63,12 @@ fn main() -> std::io::Result<()> {
                 .action(ArgAction::SetTrue)
                 .help("Rebase all files"),
         )
+        .arg(
+            Arg::new("clone")
+                .long("clone")
+                .action(ArgAction::SetTrue)
+                .help("Clone files from repo into backup directory"),
+        )
         .arg(Arg::new("remote").long("remote").help("Change remote link"))
     .arg(Arg::new("dir").long("dir").help("Add directory to backups"))
         .arg(Arg::new("file").long("file").help("Add file to backups"))
@@ -76,63 +84,11 @@ fn main() -> std::io::Result<()> {
     let verbose = matches.get_flag("verbose");
 
     //set backup dir
-    let dir_backup = Path::new(&config.dir_backup);
-    if !config.dir_backup.is_empty() {
-        if !dir_backup.exists() {
-            fs::create_dir(dir_backup)?;
-        }
-    } else {
-        panic!("You must specify directory for backups!");
-    }
-
+    set_backups_dir(&config)?;
     //prepare git repo
-    let dir_git_path = Path::new(&config.dir_backup).join(".git");
-    if !dir_git_path.exists() {
-        let output = git_execute(&["init"], dir_backup)?;
-        git_execute(&["add", "."], dir_backup)?;
-        git_execute(&["remote", "add", "origin", &config.remote], dir_backup)?;
+    prepare_git_repo(&config)?;
 
-        if output.status.success() {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
-        } else {
-            println!("{}", String::from_utf8_lossy(&output.stderr));
-        }
-    }
-
-    if let Some(val) = matches.get_one::<String>("remote") {
-        config.remote = val.to_string();
-    } else if let Some(val) = matches.get_one::<String>("dir") {
-        config.dirs_local.push(val.to_string());
-    } else if let Some(val) = matches.get_one::<String>("file") {
-        config.files_local.push(val.to_string());
-    } else if let Some(val) = matches.get_one::<String>("del") {
-        if val.ends_with('/') {
-            let mut dir = val.to_string();
-            dir.pop();
-            config.dirs_local.retain(|x| x != &dir);
-        } else {
-            config.files_local.retain(|x| x != val);
-        }
-    } else if let Some(val) = matches.get_one::<String>("home-dir") {
-        config.home_dir = val.to_string();
-    } else if let Some(val) = matches.get_one::<String>("backup-dir") {
-        config.dir_backup = val.to_string();
-    } else if matches.get_flag("show-config") {
-        println!("{}", serde_json::to_string_pretty(&config)?);
-    } else if matches.get_flag("tree") {
-        let output = std::process::Command::new("tree")
-            .arg(&config.dir_backup)
-            .output()?;
-
-        if output.status.success() {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
-        } else {
-            panic!("Can't show tree :(");
-        }
-    }
-
-    let config_string = serde_json::to_string_pretty(&config).unwrap();
-    std::fs::write(&config_path, &config_string)?;
+    let config_string = change_config(&matches, &mut config, &config_path)?;
     if verbose {
         println!("Configuration: {}", config_string);
     }
@@ -150,6 +106,91 @@ fn main() -> std::io::Result<()> {
     }
     if matches.get_flag("get-local") {
         get(&config, verbose)?;
+    }
+
+    Ok(())
+}
+
+fn change_config(
+    matches: &ArgMatches,
+    config: &mut Config,
+    config_path: &PathBuf,
+) -> std::io::Result<String> {
+    let keys = ["remote", "dir", "file", "del", "home-dir", "backup-dir"];
+    for key in keys {
+        let val = matches.get_one::<String>(key);
+        if val.is_none() {
+            continue;
+        }
+
+        let mut val = val.unwrap().to_string();
+        match key {
+            "remote" => config.remote = val,
+            "dir" => config.dirs_local.push(val),
+            "file" => config.files_local.push(val),
+            "del" => {
+                if val.ends_with('/') {
+                    val.pop();
+                    config.dirs_local.retain(|x| x != &val);
+                } else {
+                    config.files_local.retain(|x| x != &val);
+                }
+            }
+            "home-dir" => config.home_dir = val,
+            "backup-dir" => config.dir_backup = val,
+            _ => {}
+        }
+    }
+    if matches.get_flag("show-config") {
+        println!("{}", serde_json::to_string_pretty(&config)?);
+        exit(0);
+    } else if matches.get_flag("tree") {
+        let output = std::process::Command::new("tree")
+            .arg(&config.dir_backup)
+            .output()?;
+
+        if output.status.success() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        } else {
+            panic!("Can't show tree :(");
+        }
+        exit(0);
+    }
+
+    let config_string = serde_json::to_string_pretty(&config).unwrap();
+    std::fs::write(config_path, &config_string)?;
+
+    Ok(config_string)
+}
+
+fn prepare_git_repo(config: &Config) -> std::io::Result<()> {
+    let dir_git_path = Path::new(&config.dir_backup).join(".git");
+    let dir_backup = Path::new(&config.dir_backup);
+
+    if !dir_git_path.exists() {
+        let output = git_execute(&["init"], dir_backup)?;
+        git_execute(&["add", "."], dir_backup)?;
+        git_execute(&["remote", "add", "origin", &config.remote], dir_backup)?;
+
+        if output.status.success() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        } else {
+            println!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+    }
+
+    Ok(())
+}
+
+fn set_backups_dir(config: &Config) -> std::io::Result<()> {
+    let dir_backup = Path::new(&config.dir_backup);
+
+    if !config.dir_backup.is_empty() {
+        if !dir_backup.exists() {
+            fs::create_dir(dir_backup)?;
+        }
+    } else {
+        panic!("You must specify directory for backups!");
     }
 
     Ok(())
