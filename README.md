@@ -11,7 +11,7 @@ The program follows the command execution order: remote/dir/file/del → prepare
 * **Git Integration:** Commit local changes, push them to a remote repository, and pull updates from the remote repository.
 
 ## Instalation
-```bash
+```sh
 git clone https://github.com/zloykotept/gitmover.git
 cd gitmover
 cargo build --release
@@ -43,7 +43,7 @@ Options:
 
 ## Example Usage
 For clonning into clear system
-```bash
+```sh
 gitmover --remote https://github.com/username/dotfiles
 gitmover --backup-dir /home/user/.dots_backups
 gitmover --home-dir /home/user
@@ -52,10 +52,23 @@ gitmover --sync-config
 gitmover --get-local
 ```
 For pushing .config into GitHub
-```bash
+```sh
 gitmover --remote https://github.com/username/dotfiles
 gitmover --backup-dir /home/user/.dots_backups
 gitmover --home-dir /home/user
 gitmover --dir .config
 gitmover --push
+```
+## Configuration file
+GitMover uses a configuration file stored at ~/.config/gitmover/config.json. This file contains information about the backup directory, files, and directories to be backed up, as well as the remote Git repository URL.
+
+The tool will automatically generate this configuration file if it doesn't exist, or you can modify it manually. The configuration file should look like this:
+```json
+{
+  "remote": "https://github.com/yourusername/dotfiles.git",
+  "dirs_local": ["dir1", "dir2"],
+  "files_local": ["file1.txt", "file2.conf"],
+  "home_dir": "/home/user",
+  "dir_backup": "/path/to/backup"
+}
 ```
