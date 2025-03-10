@@ -72,3 +72,6 @@ The tool will automatically generate this configuration file if it doesn't exist
   "dir_backup": "/path/to/backup"
 }
 ```
+## TODO
+* More pretty and readabale output/logs
+* More effective and convenient CLI
