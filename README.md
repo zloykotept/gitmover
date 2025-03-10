@@ -2,20 +2,21 @@
 
 GitMover is a command-line tool designed to help you manage, back up, and synchronize your dotfiles, directories, and files between your local machine and a remote Git repository. This tool uses your installed Git client and provides various features like backing up files, pulling updates, and pushing changes to GitHub.
 
-**Note**: You must be logged into your Git CLI to use this tool, as it relies on your installed git command. The program follows the command execution order: remote/dir/file/del → prepare → push → get → get_local (other are exclusive).
----
+**Note**: You must be logged into your Git CLI to use this tool, as it relies on your installed git command.
+The program follows the command execution order: remote/dir/file/del → prepare → push → get → get_local (other are exclusive).
+
 ## Features
 * **Backup and Restore:** Add files and directories to your backup and restore them at any time.
 * **Sync Configurations:** Automatically add files and directories from your backup directory to the configuration for easy clonning.
 * **Git Integration:** Commit local changes, push them to a remote repository, and pull updates from the remote repository.
----
+
 ## Instalation
 ```bash
 git clone https://github.com/zloykotept/gitmover.git
 cd gitmover
 cargo build --release
 ```
----
+
 ## Usage
 ```
 transf.exe [OPTIONS]
@@ -39,7 +40,7 @@ Options:
   -h, --help                     Print help
   -V, --version                  Print version
 ```
----
+
 ## Example Usage
 For clonning into clear system
 ```bash
