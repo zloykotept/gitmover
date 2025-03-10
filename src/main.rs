@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
     process::exit,
 };
-use transf::{get, git_execute, prepare, pull, push, Config};
+use transf::{get, git_execute, prepare, pull, push, sync_config, Config};
 
 fn main() -> std::io::Result<()> {
     let home = my_home().unwrap().expect("Can't get home directory");
@@ -64,10 +64,16 @@ fn main() -> std::io::Result<()> {
                 .help("Rebase all files"),
         )
         .arg(
-            Arg::new("clone")
-                .long("clone")
+            Arg::new("pull")
+                .long("pull")
                 .action(ArgAction::SetTrue)
-                .help("Clone files from repo into backup directory"),
+                .help("Pull from repo into backup directory"),
+        )
+        .arg(
+            Arg::new("sync-config")
+                .long("sync-config")
+                .action(ArgAction::SetTrue)
+                .help("Automatic add files and directories from backup-dir in config"),
         )
         .arg(Arg::new("remote").long("remote").help("Change remote link"))
     .arg(Arg::new("dir").long("dir").help("Add directory to backups"))
@@ -93,6 +99,17 @@ fn main() -> std::io::Result<()> {
         println!("Configuration: {}", config_string);
     }
 
+    if matches.get_flag("pull") {
+        pull(&config, verbose)?;
+        return Ok(());
+    }
+    if matches.get_flag("sync-config") {
+        sync_config(&mut config)?;
+
+        let config_string = serde_json::to_string_pretty(&config).unwrap();
+        std::fs::write(config_path, &config_string)?;
+        return Ok(());
+    }
     if matches.get_flag("prepare") {
         prepare(&config, verbose)?;
     }
@@ -125,7 +142,14 @@ fn change_config(
 
         let mut val = val.unwrap().to_string();
         match key {
-            "remote" => config.remote = val,
+            "remote" => {
+                config.remote = val;
+                let backup_dir_path = Path::new(&config.dir_backup);
+                git_execute(
+                    &["remote", "set-url", "origin", &config.remote],
+                    backup_dir_path,
+                )?;
+            }
             "dir" => config.dirs_local.push(val),
             "file" => config.files_local.push(val),
             "del" => {

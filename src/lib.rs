@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     fs,
-    io::{self, BufRead},
+    io::{self},
     path::Path,
     process::Output,
 };
@@ -9,6 +9,8 @@ use std::{
 use dircpy::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+type Res = std::io::Result<()>;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Config {
@@ -19,8 +21,7 @@ pub struct Config {
     pub dir_backup: String,
 }
 
-pub fn prepare(conf: &Config, verbose: bool) -> std::io::Result<()> {
-    //fs::remove_dir_all(&conf.dir_backup)?;
+pub fn prepare(conf: &Config, verbose: bool) -> Res {
     //remove all from backup folder except for .git
     let entries = fs::read_dir(&conf.dir_backup)?;
     for entry in entries {
@@ -57,7 +58,7 @@ pub fn prepare(conf: &Config, verbose: bool) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn get(conf: &Config, verbose: bool) -> std::io::Result<()> {
+pub fn get(conf: &Config, verbose: bool) -> Res {
     conf.dirs_local.iter().try_for_each(|path| {
         copy_file(
             format!("{}/{}", conf.dir_backup, path),
@@ -77,7 +78,7 @@ pub fn get(conf: &Config, verbose: bool) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn push(conf: &Config, verbose: bool) -> std::io::Result<()> {
+pub fn push(conf: &Config, verbose: bool) -> Res {
     let commit_id = Uuid::new_v4().to_string();
     let backup_dir_path = Path::new(&conf.dir_backup);
     let mut answer = String::new();
@@ -126,7 +127,7 @@ pub fn push(conf: &Config, verbose: bool) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn pull(conf: &Config, verbose: bool) -> std::io::Result<()> {
+pub fn pull(conf: &Config, verbose: bool) -> Res {
     let backup_dir_path = Path::new(&conf.dir_backup);
 
     if let Ok(output) = git_execute(
@@ -149,6 +150,45 @@ pub fn pull(conf: &Config, verbose: bool) -> std::io::Result<()> {
     Ok(())
 }
 
+pub fn sync_config(conf: &mut Config) -> Res {
+    let entries: Vec<_> = fs::read_dir(&conf.dir_backup)?.collect::<Result<Vec<_>, _>>()?;
+    conf.dirs_local = entries
+        .iter()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.is_dir() {
+                Some(
+                    path.strip_prefix(&conf.dir_backup)
+                        .unwrap()
+                        .display()
+                        .to_string(),
+                )
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    conf.files_local = entries
+        .iter()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.is_file() {
+                Some(
+                    path.strip_prefix(&conf.dir_backup)
+                        .unwrap()
+                        .display()
+                        .to_string(),
+                )
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(())
+}
+
 pub fn git_execute(args: &[&str], current_dir: &Path) -> Result<Output, std::io::Error> {
     std::process::Command::new("git")
         .args(args)
@@ -156,7 +196,7 @@ pub fn git_execute(args: &[&str], current_dir: &Path) -> Result<Output, std::io:
         .output()
 }
 
-fn copy_file(src: String, dst: String, verbose: bool) -> std::io::Result<()> {
+fn copy_file(src: String, dst: String, verbose: bool) -> Res {
     if let Err(err) = CopyBuilder::new(&src, &dst).overwrite(true).run() {
         println!("Can't reach file {}, {}", src, err);
     }
