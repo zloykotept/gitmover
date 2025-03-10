@@ -28,10 +28,10 @@ fn main() -> std::io::Result<()> {
         Err(err) => panic!("You have errors in your config! {}", err),
     }
 
-    let matches = Command::new("TransFer")
+    let matches = Command::new("GitMover")
         .version("0.1.0")
         .author("ZloyKot")
-        .about("Serve your sweaty dotfiles, skoofs :) NOTE: you must be logged with your git CLI to use this tool, this program just uses your installed git tool (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local)")
+        .about("Standart description blah blah NOTE: you must be logged with your git CLI to use this tool, this program just uses your installed git tool (command execution order: remote/dir/file/del -> prepare -> push -> get -> get_local)")
         .arg(
             Arg::new("verbose")
                 .long("verbose")
