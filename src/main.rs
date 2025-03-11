@@ -2,6 +2,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use gitmover::{get, git_execute, prepare, pull, push, sync_config, Config};
 use homedir::my_home;
 use std::{
+    env,
     error::Error,
     fs::{self, File},
     io::Write,
@@ -10,6 +11,11 @@ use std::{
 };
 
 fn main() -> std::io::Result<()> {
+    unsafe {
+        env::set_var("RUST_LOG", "trace");
+    }
+    env_logger::init();
+
     let home = my_home().unwrap().expect("Can't get home directory");
     let config_path = home.join("/.config/gitmover/config.json");
 

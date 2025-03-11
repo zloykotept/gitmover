@@ -7,6 +7,7 @@ use std::{
 };
 
 use dircpy::*;
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -37,7 +38,7 @@ pub fn prepare(conf: &Config, verbose: bool) -> Res {
         }
     }
 
-    println!("WARNING! Don't interrupt this process! It may cause data loss!");
+    info!("WARNING! Don't interrupt this process! It may cause data loss!");
 
     conf.dirs_local.iter().try_for_each(|path| {
         copy_file(
@@ -86,31 +87,31 @@ pub fn push(conf: &Config, verbose: bool) -> Res {
     //add all files to commit
     git_execute(&["add", "."], backup_dir_path)?;
     if verbose {
-        println!("Executed \"git add .\"");
+        info!("Executed \"git add .\"");
     }
     //switch to main branch
     git_execute(&["checkout", "-b", "main"], backup_dir_path)?;
     if verbose {
-        println!("Executed \"git checkout -b main\"");
+        info!("Executed \"git checkout -b main\"");
     }
     //commit changes
     if let Ok(output) = git_execute(&["commit", "-m", &commit_id], backup_dir_path) {
         if verbose {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
+            debug!("{}", String::from_utf8_lossy(&output.stdout));
         }
 
-        println!("{}", String::from_utf8_lossy(&output.stderr));
+        info!("Commited with uuid: {}", commit_id);
     }
     //try push into remote
     if let Ok(output) = git_execute(&["push", "origin", "main"], backup_dir_path) {
         if verbose {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
+            debug!("{}", String::from_utf8_lossy(&output.stdout));
         }
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         println!("{}", stderr);
         if stderr.lines().count() > 2 {
-            println!("Oops! There are changes in remote and I can't apply yours there!");
+            warn!("Oops! There are changes in remote and I can't apply yours there!");
             println!("Do you want to overwrite remote with local files? [y/n]");
 
             io::stdin().read_line(&mut answer).unwrap();
@@ -141,10 +142,10 @@ pub fn pull(conf: &Config, verbose: bool) -> Res {
         backup_dir_path,
     ) {
         if verbose {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
+            debug!("{}", String::from_utf8_lossy(&output.stdout));
         }
 
-        println!("{}", String::from_utf8_lossy(&output.stderr));
+        info!("Pulled using command: \"git pull --rebase origin main --strategy-option=their\"");
     }
 
     Ok(())
@@ -198,10 +199,10 @@ pub fn git_execute(args: &[&str], current_dir: &Path) -> Result<Output, std::io:
 
 fn copy_file(src: String, dst: String, verbose: bool) -> Res {
     if let Err(err) = CopyBuilder::new(&src, &dst).overwrite(true).run() {
-        println!("Can't reach file {}, {}", src, err);
+        info!("Can't reach file {}, {}", src, err);
     }
     if verbose {
-        println!("Moved {} to {}", src, dst);
+        debug!("Moved {} to {}", src, dst);
     }
 
     Ok(())
