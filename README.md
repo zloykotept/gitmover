@@ -34,7 +34,7 @@ Options:
       --file <file>              Add a file to the backup.
       --home-dir <home-dir>      Specify the home directory. All files and directories will be searched relative to this path (without the trailing slash).
       --backup-dir <backup-dir>  Specify the backup directory. All files will be saved to this folder (without the trailing slash).
-      --del <del>                Delete a file or directory from backups. Use ***dirname/*** for directories and ***filename.txt*** for files
+      --del <del>                Delete a file or directory from backups. Use *dirname/* for directories and *filename.txt* for files
       --tree                     Show the backup folder tree
       --show-config              Show the current configuration settings.
   -h, --help                     Print help
