@@ -1,6 +1,5 @@
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use gitmover::{get, git_execute, prepare, pull, push, sync_config, Config};
-use homedir::my_home;
 use std::{
     env,
     error::Error,
@@ -16,8 +15,14 @@ fn main() -> std::io::Result<()> {
     }
     env_logger::init();
 
-    let home = my_home().unwrap().expect("Can't get home directory");
-    let config_path = home.join("/.config/gitmover/config.json");
+    let mut config_path_str = String::new();
+    if cfg!(target_os = "windows") {
+        config_path_str = env::var("USERPROFILE")?;
+    } else if cfg!(target_os = "linux") {
+        config_path_str = env::var("HOME")?;
+    }
+    config_path_str += "/.config/gitmover/config.json";
+    let config_path = PathBuf::from_str(config_path_str.as_str())?;
 
     if !config_path.exists() {
         fs::create_dir_all(config_path.parent().unwrap())?;
